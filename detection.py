@@ -12,7 +12,7 @@ from time import time
 from torch.optim import lr_scheduler
 from utils.dsetparser import parse_dset_config
 
-USE_WANDB = True
+USE_WANDB = False
 if USE_WANDB:
     import wandb
     wandb.init(project='alpr', entity='afzal', name='detection_skeleton_0')
@@ -42,7 +42,7 @@ class ChaLocDataLoader(Dataset):
             print('Later, Loser...')
             exit(0)
         resizedImage = cv2.resize(img, self.img_size)
-        resizedImage = np.reshape(resizedImage, (resizedImage.shape[2], resizedImage.shape[0], resizedImage.shape[1]))
+        resizedImage = np.transpose(resizedImage, (2, 0, 1))
 
         iname = img_name.rsplit('/', 1)[-1].rsplit('.', 1)[0].split('-')
         [leftUp, rightDown] = [[int(eel) for eel in el.split('&')] for el in iname[2].split('_')]
@@ -163,7 +163,7 @@ class wR2(nn.Module):
 def draw_bbox(image, bbox, color):  #Input/Output in (C, H, W), 0-1 range
     image_cp = np.copy(image)
     h, w = image_cp.shape[1], image_cp.shape[2]
-    image_cp = np.float32(np.reshape(image_cp, (image_cp.shape[1],image_cp.shape[2], image_cp.shape[0])))
+    image_cp = np.float32(channels_last(image_cp))
     topleft_x = int(bbox[0]*w - bbox[2]*w/2.)
     topleft_y = int(bbox[1]*h - bbox[3]*h/2.)
     botright_x = int(bbox[0]*w + bbox[2]*w/2.)
@@ -175,24 +175,27 @@ def draw_bbox(image, bbox, color):  #Input/Output in (C, H, W), 0-1 range
     else:
         cl = (0, 0, 0)
     cv2.rectangle(image_cp, (topleft_x, topleft_y), (botright_x, botright_y), cl, 1) 
-    return np.reshape(image_cp, (image_cp.shape[2], image_cp.shape[0], image_cp.shape[1]))
+    return channels_first(image_cp)
+
+def channels_last(image):
+    return np.transpose(image, (1, 2, 0))
+
+def channels_first(image):
+    return np.transpose(image, (2, 0, 1))
 
 def write_image(image, filename): #Input in (C, H, W), 0-1 range
     image_cp = np.copy(image)
-    image_cp = np.float32(np.reshape(image_cp, (image_cp.shape[1],image_cp.shape[2], image_cp.shape[0])))
+    image_cp = np.float32(channels_last(image_cp))
     print('Writing Image...')
     cv2.imwrite(filename, image_cp*255.0)
     return
 
 def retrieve_img(image):
     cp = np.copy(image)
-    cp = np.reshape(cp, (cp.shape[1], cp.shape[2], cp.shape[0]))
+    cp = channels_last(cp)
     resized = cv2.resize(cp, (720, 1160))
-    cp = np.reshape(resized, (resized.shape[2], resized.shape[0], resized.shape[1]))
+    cp = channels_first(resized)
     return cp
-
-def channels_last(image):
-    return np.reshape(image, (image.shape[1], image.shape[2], image.shape[0]))
 
 def train_model(model, criterion, optimizer, lrScheduler, trainloader, evalloader, batchSize, num_epochs=300):
     for epoch in range(1, num_epochs):
@@ -214,8 +217,8 @@ def train_model(model, criterion, optimizer, lrScheduler, trainloader, evalloade
             # Compute and print loss
             loss = 0.0
             if len(y_pred) == batchSize:
-                loss += 0.8 * nn.L1Loss().cuda()(y_pred[:][:2], y[:][:2]) #Penalizing more on box center coordinates
-                loss += 0.2 * nn.L1Loss().cuda()(y_pred[:][2:], y[:][2:])
+                loss += 0.8 * nn.L1Loss().cuda()(y_pred[:,:2], y[:,:2]) #Penalizing more on box center coordinates
+                loss += 0.2 * nn.L1Loss().cuda()(y_pred[:,2:], y[:,2:])
                 lossAver.append(loss.item())
 
                 # Zero gradients, perform a backward pass, and update the weights.
@@ -269,8 +272,8 @@ def val_model(model, evalloader, batchSize, epoch):
 
         # Compute and print loss
         loss = 0.0
-        loss += 0.8 * nn.L1Loss().cuda()(y_pred[:][:2], y[:][:2]) #Penalizing more on box center coordinates
-        loss += 0.2 * nn.L1Loss().cuda()(y_pred[:][2:], y[:][2:])
+        loss += 0.8 * nn.L1Loss().cuda()(y_pred[:,:2], y[:,:2]) #Penalizing more on box center coordinates
+        loss += 0.2 * nn.L1Loss().cuda()(y_pred[:,2:], y[:,2:])
         lossAver.append(loss.item())
 
         batch_iou = IoU(YI*480, 480*y_pred.cpu().detach().numpy())
