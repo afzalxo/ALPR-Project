@@ -18,14 +18,14 @@ from trainer.trainer import train_model
 USE_WANDB = True
 if USE_WANDB:
     import wandb
-    wandb.init(project='alpr', entity='afzal', name='detection_reluo')
+    wandb.init(project='alpr', entity='afzal', name='detection_pretraining')
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--dsetconf", default='dset_config/config.ccpd',
                 help="path to the dataset config file")
-ap.add_argument("-n", "--epochs", default=300,
+ap.add_argument("-n", "--epochs", default=25,
                 help="epochs for train")
-ap.add_argument("-b", "--batchsize", default=5,
+ap.add_argument("-b", "--batchsize", default=6,
                 help="batch size for train")
 args = vars(ap.parse_args())
 
@@ -49,7 +49,7 @@ def main():
 
     model = wR2(numClasses)
     #model = torch.nn.DataParallel(model, device_ids=range(torch.cuda.device_count())) # This piece of shit hangs 
-            #the node pretty fucking badly, to the point that the script process is unkillable and have to restart 
+            #the node pretty badly, to the point that the script process is unkillable and have to restart 
             #the node to restore operation, which results in a stopped docker container removing all its contents. 
             #(https://github.com/pytorch/pytorch/issues/24081#issuecomment-557074611). Cant disable IOMMU in BIOS 
             #since working on a remote node. Got no choice but to work with a single GPU. 

@@ -19,6 +19,10 @@ from models.fh02 import fh02
 from trainer.full_trainer import train_model
 from utils.dsetparser import parse_dset_config
 
+USE_WANDB = True
+if USE_WANDB:
+    import wandb
+    wandb.init(project='alpr', name='detection full training')
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-n", "--epochs", default=300,
@@ -66,4 +70,4 @@ dstval = LabelTestDataLoader(valloc, imgSize)
 valloader = DataLoader(dstval, batch_size=1, shuffle=True, num_workers=8)
 lrScheduler = lr_scheduler.StepLR(optimizer_conv, step_size=5, gamma=0.1)
 
-model_conv = train_model(model_conv, criterion, optimizer_conv, trainloader, valloader, lrScheduler, batchSize, num_epochs=epochs)
+model_conv = train_model(model_conv, criterion, optimizer_conv, trainloader, valloader, lrScheduler, batchSize, storeName, USE_WANDB, num_epochs=epochs)

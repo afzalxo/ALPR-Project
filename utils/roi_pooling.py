@@ -30,10 +30,12 @@ class AdaptiveMaxPool2d(Function):
             self._backend.library_state, input, grad_output, grad_input,
             indices)
         return grad_input, None
+
 '''
 
 def adaptive_max_pool(input, size):
-    return nn.AdaptiveMaxPool2d(size[0], size[1])(input)
+    return nn.AdaptiveMaxPool2d((size[0], size[1]))(input)
+
 
 
 def roi_pooling(input, rois, size=(7, 7), spatial_scale=1.0):
@@ -55,9 +57,10 @@ def roi_pooling(input, rois, size=(7, 7), spatial_scale=1.0):
     return torch.cat(output, 0)
 
 
-def roi_pooling_ims(input, rois, size=(7, 7), spatial_scale=1.0):
+def roi_pooling_ims(input, rois, output_size=(7, 7), spatial_scale=1.0):
     # written for one roi one image
     # size: (w, h)
+    #print('Roi Pooling')
     assert (rois.dim() == 2)
     assert len(input) == len(rois)
     assert (rois.size(1) == 4)
@@ -71,6 +74,15 @@ def roi_pooling_ims(input, rois, size=(7, 7), spatial_scale=1.0):
         roi = rois[i]
         # im = input.narrow(0, im_idx, 1)
         im = input.narrow(0, i, 1)[..., roi[1]:(roi[3] + 1), roi[0]:(roi[2] + 1)]
-        output.append(adaptive_max_pool(im, size))
+        ad_mp = adaptive_max_pool(im, output_size)
+        #asd = [len(a) for a in ad_mp]
+        #print(len(ad_mp), input.size())
+        #print(asd)
+        output.append(ad_mp)#adaptive_max_pool(im, size))
 
+    #print(type(output))
+    #print(output)
+    #print(len(output[0]))
+
+    #print(torch.Tensor(output[0]).size())
     return torch.cat(output, 0)

@@ -1,7 +1,10 @@
 import torch
 import torch.nn as nn
+from torch.autograd import Variable
 from models.wR2 import wR2
 from utils.roi_pooling import roi_pooling_ims
+#from utils.roi_pooling import roi_pooling
+from torchvision.ops import roi_pool
 
 class fh02(nn.Module):
     def __init__(self, num_classes, wrPath=None):
@@ -69,19 +72,19 @@ class fh02(nn.Module):
         #     param.requires_grad = False
 
     def forward(self, x):
-        x0 = self.wR2.module.features[0](x)
-        _x1 = self.wR2.module.features[1](x0)
-        x2 = self.wR2.module.features[2](_x1)
-        _x3 = self.wR2.module.features[3](x2)
-        x4 = self.wR2.module.features[4](_x3)
-        _x5 = self.wR2.module.features[5](x4)
+        x0 = self.wR2.features[0](x)
+        _x1 = self.wR2.features[1](x0)
+        x2 = self.wR2.features[2](_x1)
+        _x3 = self.wR2.features[3](x2)
+        x4 = self.wR2.features[4](_x3)
+        _x5 = self.wR2.features[5](x4)
 
-        x6 = self.wR2.module.features[6](_x5)
-        x7 = self.wR2.module.features[7](x6)
-        x8 = self.wR2.module.features[8](x7)
-        x9 = self.wR2.module.features[9](x8)
+        x6 = self.wR2.features[6](_x5)
+        x7 = self.wR2.features[7](x6)
+        x8 = self.wR2.features[8](x7)
+        x9 = self.wR2.features[9](x8)
         x9 = x9.view(x9.size(0), -1)
-        boxLoc = self.wR2.module.classifier(x9)
+        boxLoc = self.wR2.classifier(x9)
 
         h1, w1 = _x1.data.size()[2], _x1.data.size()[3]
         p1 = Variable(torch.FloatTensor([[w1,0,0,0],[0,h1,0,0],[0,0,w1,0],[0,0,0,h1]]).cuda(), requires_grad=False)
@@ -93,15 +96,28 @@ class fh02(nn.Module):
         # x, y, w, h --> x1, y1, x2, y2
         assert boxLoc.data.size()[1] == 4
         postfix = Variable(torch.FloatTensor([[1,0,1,0],[0,1,0,1],[-0.5,0,0.5,0],[0,-0.5,0,0.5]]).cuda(), requires_grad=False)
+        #print(boxLoc.size(), postfix.size())
         boxNew = boxLoc.mm(postfix).clamp(min=0, max=1)
 
         # input = Variable(torch.rand(2, 1, 10, 10), requires_grad=True)
         # rois = Variable(torch.LongTensor([[0, 1, 2, 7, 8], [0, 3, 3, 8, 8], [1, 3, 3, 8, 8]]), requires_grad=False)
-        roi1 = roi_pooling_ims(_x1, boxNew.mm(p1), size=(16, 8))
-        roi2 = roi_pooling_ims(_x3, boxNew.mm(p2), size=(16, 8))
-        roi3 = roi_pooling_ims(_x5, boxNew.mm(p3), size=(16, 8))
+        box_N1 = boxNew.mm(p1)
+        box_N2 = boxNew.mm(p2)
+        box_N3 = boxNew.mm(p3)
+        #lboxes1 = []
+        #lboxes2 = []
+        #lboxes3 = []
+        #for i in range(0, box_N1.size(0)):
+        #    lboxes1.append(torch.tensor(box_N1[i,:]))
+        #    lboxes2.append(box_N2[i,:])
+        #    lboxes3.append(box_N3[i,:])
+        #print(len(lboxes1))
+        roi1 = roi_pooling_ims(_x1, box_N1, output_size=(16, 8))
+        roi2 = roi_pooling_ims(_x3, box_N2, output_size=(16, 8))
+        roi3 = roi_pooling_ims(_x5, box_N3, output_size=(16, 8))
         rois = torch.cat((roi1, roi2, roi3), 1)
 
+        #print(roi1.size(), roi2.size(), roi3.size())
         _rois = rois.view(rois.size(0), -1)
 
         y0 = self.classifier1(_rois)
@@ -112,3 +128,4 @@ class fh02(nn.Module):
         y5 = self.classifier6(_rois)
         y6 = self.classifier7(_rois)
         return boxLoc, [y0, y1, y2, y3, y4, y5, y6]
+
