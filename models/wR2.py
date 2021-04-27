@@ -87,9 +87,9 @@ class wR2(nn.Module):
         )
         self.classifier = nn.Sequential(
             nn.Linear(23232, 100),
-            nn.ReLU(inplace=True),
+            #nn.ReLU(inplace=True),
             nn.Linear(100, 100),
-            nn.ReLU(inplace=True),
+            #nn.ReLU(inplace=True),
             nn.Linear(100, num_classes),
         )
 
@@ -98,5 +98,4 @@ class wR2(nn.Module):
         x11 = x1.view(x1.size(0), -1)
         x = self.classifier(x11)
         return x
-
 

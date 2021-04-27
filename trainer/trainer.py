@@ -25,8 +25,8 @@ def train_model(model, criterion, optimizer, lrScheduler, trainloader, evalloade
             # Compute and print loss
             loss = 0.0
             if len(y_pred) == batchSize:
-                loss += 0.8 * criterion(y_pred[:,:2], y[:,:2]) #Penalizing more on box center coordinates
-                loss += 0.2 * criterion(y_pred[:,2:], y[:,2:])
+                loss += 0.8 * nn.L1Loss().cuda()(y_pred[:,:2], y[:,:2]) #Penalizing more on box center coordinates
+                loss += 0.2 * nn.L1Loss().cuda()(y_pred[:,2:], y[:,2:])
                 lossAver.append(loss.item())
 
                 # Zero gradients, perform a backward pass, and update the weights.
@@ -58,12 +58,13 @@ def train_model(model, criterion, optimizer, lrScheduler, trainloader, evalloade
         print ('Epoch %s Trained, Loss: %s, Accuracy: %s, Time: %s\n' % (epoch, sum(lossAver) / len(lossAver), correct_pred/(dset_len*batchSize), time()-start))
         lrScheduler.step()
         if USE_WANDB:
-            wandb.log({'Epoch Train Loss': sum(lossAver)/len(lossAver)}, step = epoch)
-            wandb.log({'Epoch Train Accuracy': correct_pred/(dset_len*batchSize)}, step = epoch)
+            #wandb.log({'Epoch Train Loss': sum(lossAver)/len(lossAver)}, step = epoch)
+            #wandb.log({'Epoch Train Accuracy': correct_pred/(dset_len*batchSize)}, step = epoch)
+            print('Storing in wandb...')
             wandb.save('trained_models/epochs/save_epoch' + str(epoch) + '.pth')
         torch.save(model.state_dict(), 'trained_models/epochs/save_epoch' + str(epoch) + '.pth')
         #Begin Eval here
-        val_model(model, evalloader, batchSize, epoch, USE_WANDB) 
+        #val_model(model, evalloader, batchSize, epoch, USE_WANDB) 
     return 
 
 def val_model(model, evalloader, batchSize, epoch, USE_WANDB):
