@@ -13,11 +13,11 @@ import os
 import argparse
 import random
 
-parser = argparse.ArgumentParser(description='crop the licence plate from original image')
+parser = argparse.ArgumentParser(description='split base into train/val sets')
 parser.add_argument("-image", help='image path', default='../../ccpd/ccpd_dataset/ccpd_weather', type=str)
-parser.add_argument("-dir_train", help='save directory', default='ccpd_train', type=str)
-parser.add_argument("-dir_val", help='save directory', default='ccpd_val', type=str)
-parser.add_argument("-size", help='the number of images to be saved', default=5000, type=int)
+parser.add_argument("-dir_train", help='save directory', default='./ccpd_train', type=str)
+parser.add_argument("-dir_val", help='save directory', default='./ccpd_val', type=str)
+parser.add_argument("-size", help='the number of images to be saved', default=10000, type=int)
 args = parser.parse_args()
 
 img_paths = []
@@ -26,6 +26,8 @@ random.shuffle(img_paths)
 
 save_dir_train = args.dir_train
 save_dir_val = args.dir_val
+os.mkdir(save_dir_train)
+os.mkdir(save_dir_val)
 
 print('image data processing is kicked off...')
 print("%d images in total" % len(img_paths))

@@ -14,7 +14,7 @@ def weights_init(m):
         nn.init.xavier_uniform_(m.weight.data)
         nn.init.constant_(m.bias, 0.1)
 
-train_path = '../data_preprocessing/anno_store/imglist_anno_12.txt'
+train_path = '../data_preprocessing/anno_store/imglist_anno_12_train.txt'
 val_path = '../data_preprocessing/anno_store/imglist_anno_12_val.txt'
 batch_size = 64
 dataloaders = {'train': torch.utils.data.DataLoader(ListDataset(train_path), batch_size=batch_size, shuffle=True),
@@ -23,10 +23,10 @@ dataset_sizes = {'train': len(ListDataset(train_path)), 'val': len(ListDataset(v
 print('training dataset loaded with length : {}'.format(len(ListDataset(train_path))))
 print('validation dataset loaded with length : {}'.format(len(ListDataset(val_path))))
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+#device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 # load the model and weights for initialization
-model = PNet(is_train=True).to(device)
+model = PNet(is_train=True).cuda() #to(device)
 model.apply(weights_init)
 print("Pnet loaded")
 
@@ -63,10 +63,10 @@ for epoch in range(num_epochs):
 
             input_images, gt_label, gt_offset = sample_batched['input_img'], sample_batched[
                 'label'], sample_batched['bbox_target']
-            input_images = input_images.to(device)
-            gt_label = gt_label.to(device)
+            input_images = input_images.cuda() #.to(device)
+            gt_label = gt_label.cuda() #.to(device)
             # print('gt_label is ', gt_label)
-            gt_offset = gt_offset.type(torch.FloatTensor).to(device)
+            gt_offset = gt_offset.type(torch.FloatTensor).cuda() #to(device)
             # print('gt_offset shape is ',gt_offset.shape)
 
             # zero the parameter gradients
@@ -91,7 +91,7 @@ for epoch in range(num_epochs):
                 valid_gt_offset = gt_offset[mask_offset]
                 valid_pred_offset = pred_offsets[mask_offset]
 
-                loss = torch.tensor(0.0).to(device)
+                loss = torch.tensor(0.0).cuda() #to(device)
                 cls_loss, offset_loss = 0.0, 0.0
                 eval_correct = 0.0
                 num_gt = len(valid_gt_label)

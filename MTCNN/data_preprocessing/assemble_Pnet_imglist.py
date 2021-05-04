@@ -3,11 +3,12 @@ import sys
 sys.path.append(os.getcwd())
 import assemble
 
-pnet_postive_file = 'anno_store/pos_12_val.txt'
-pnet_part_file = 'anno_store/part_12_val.txt'
-pnet_neg_file = 'anno_store/neg_12_val.txt'
+split_ = 'train'
+pnet_postive_file = 'anno_store/pos_12_'+split_+'.txt'
+pnet_part_file = 'anno_store/part_12_'+split_+'.txt'
+pnet_neg_file = 'anno_store/neg_12_'+split_+'.txt'
 # pnet_landmark_file = './anno_store/landmark_12.txt'
-imglist_filename = 'anno_store/imglist_anno_12_val.txt'
+imglist_filename = 'anno_store/imglist_anno_12_'+split_+'.txt'
 
 if __name__ == '__main__':
 

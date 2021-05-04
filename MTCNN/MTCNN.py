@@ -1,5 +1,7 @@
 import sys
 import os
+from os import listdir
+from os.path import isfile, join
 sys.path.append(os.getcwd())
 import argparse
 import torch
@@ -7,6 +9,7 @@ from model.MTCNN_nets import PNet, ONet
 import math
 import numpy as np
 from utils.util import *
+from iou import IoU
 import cv2
 import time
 
@@ -116,7 +119,7 @@ def detect_onet(onet, image, bboxes, device):
     # start = time.time()
 
     size = (94,24)
-    thresholds = 0.8  # face detection thresholds
+    thresholds = 0.8 #Prob threshold for plate detection 
     nms_thresholds = 0.7
     height, width, channel = image.shape
 
@@ -158,7 +161,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='MTCNN Demo')
     parser.add_argument("--test_image", dest='test_image', help=
-    "test image path", default="test/28.jpg", type=str)
+    "test image path", default="../test/1.jpg", type=str)
     parser.add_argument("--scale", dest='scale', help=
     "scale the iamge", default=1, type=int)
     parser.add_argument('--mini_lp', dest='mini_lp', help=
@@ -167,21 +170,69 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    correct_pred = 0
 
-    image = cv2.imread(args.test_image)
-    image = cv2.resize(image, (0, 0), fx = args.scale, fy = args.scale, interpolation=cv2.INTER_CUBIC)
+    current_sub = 'ccpd_rotate'
+    mypath = "/root/ALPR-Project/CCPD2019/"+current_sub
+    evaled = 0
+    #with open('./test.txt', 'r') as file:
+    img_paths = [f for f in listdir(mypath) if isfile(join(mypath, f))]#file.readlines()
+    #print(img_paths[0])
+    for wo in range(len(img_paths)):
+        img_name = img_paths[wo]
+        #cur_sb = img_name.split('/')[0]
+        #print(cur_sb)
+        #if cur_sb != current_sub:
+        #    continue
+        if not os.path.exists('det_results/'+current_sub+'/full_images/'):
+            os.makedirs('det_results/'+current_sub+'/full_images/')
+        if not os.path.exists('det_results/'+current_sub+'/cropped/'):
+            os.makedirs('det_results/'+current_sub+'/cropped/')
 
-    start = time.time()
+        #real_img_n = img_name.split('/')[1]
+        real_img_n = img_name
+        img_name = os.path.join('../ccpd/CCPD2019', current_sub, img_name).strip()
 
-    bboxes = create_mtcnn_net(image, args.mini_lp, device, p_model_path='weights/pnet_Weights', o_model_path='weights/onet_Weights')
+        iname = img_name.rsplit('/', 1)[-1].rsplit('.', 1)[0].split('-')
+        [leftUp, rightDown] = [[int(eel) for eel in el.split('&')] for el in iname[2].split('_')]
+        gtrth = np.array([[leftUp[0], leftUp[1], rightDown[0], rightDown[1]]])
+        #print(leftUp, rightDown)
+        #print(gtrth.shape)
+        #print(img_name)
+        image = cv2.imread(img_name)
+        image = cv2.resize(image, dsize=(0, 0), fx = args.scale, fy = args.scale, interpolation=cv2.INTER_CUBIC)
 
-    print("image predicted in {:2.3f} seconds".format(time.time() - start))
+        start = time.time()
 
-    for i in range(bboxes.shape[0]):
-        bbox = bboxes[i, :4]
-        cv2.rectangle(image, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (0, 0, 255), 2)
+        bboxes = create_mtcnn_net(image, args.mini_lp, device, p_model_path='train/trained_models_1may/pnet_Weights', o_model_path='train/trained_models_1may/onet_Weights')
+        evaled += 1
+
+        #print("image predicted in {:2.3f} seconds".format(time.time() - start))
+        if len(bboxes) == 0:
+            continue
         
-    image = cv2.resize(image, (0, 0), fx = 1/args.scale, fy = 1/args.scale, interpolation=cv2.INTER_CUBIC)
-    cv2.imshow('image', image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        predbbox = np.array([bboxes[0, :4]])
+        #print(predbbox.shape)
+        iou = IoU(predbbox, gtrth)
+        if iou >= 0.7:
+            correct_pred += 1
+        #print('IoU: %s' % str(iou))
+        print('Sample %s, Current Accuracy: %s' % (str(evaled), str(correct_pred/(evaled))))
+
+        for i in range(bboxes.shape[0]):
+            #print(bboxes.shape)
+            #print(bboxes)
+            bbox = bboxes[i, :4]
+            cropp = image[int(bbox[1]):int(bbox[3]),int(bbox[0]):int(bbox[2])]
+            loc = 'det_results/'+current_sub+'/cropped/' + str(real_img_n.strip())
+            #print(loc)
+            cv2.imwrite(loc, cropp)
+            cv2.rectangle(image, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (0, 0, 255), 2)
+        image = cv2.resize(image, (0, 0), fx = 1/args.scale, fy = 1/args.scale, interpolation=cv2.INTER_CUBIC)
+        loc = 'det_results/'+current_sub+'/full_images/' + str(real_img_n.strip())
+        #print(loc)
+        cv2.imwrite(loc, image)
+        
+            
+        #cv2.waitKey(0)
+        #cv2.destroyAllWindows()

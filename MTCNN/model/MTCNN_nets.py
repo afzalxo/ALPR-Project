@@ -99,9 +99,8 @@ class ONet(nn.Module):
         Arguments:
             x: a float tensor with shape [batch_size, 3, h, w].
         Returns:
-            c: a float tensor with shape [batch_size, 10].
-            b: a float tensor with shape [batch_size, 4].
             a: a float tensor with shape [batch_size, 2].
+            b: a float tensor with shape [batch_size, 4].
         """
         x = self.features(x)
         a = self.conv6_1(x)
@@ -113,11 +112,10 @@ class ONet(nn.Module):
         return b, a
     
 if __name__ == "__main__":
-    
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     Pnet = PNet().to(device)
     Onet = ONet().to(device)
-    
+
     P_input = torch.Tensor(2, 3, 12, 47).to(device)
     P_offset, P_prob = Pnet(P_input)
     print('P_offset shape is', P_offset.shape)

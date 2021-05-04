@@ -18,22 +18,27 @@ import numpy as np
 from utils.util import*
 from imutils import paths
 
-img_dir = "../data_set/ccpd_val"
-pos_save_dir = "../data_set/val/12/positive"
-part_save_dir = "../data_set/val/12/part"
-neg_save_dir = "../data_set/val/12/negative"
+split_ = 'train'
+img_dir = "../data_set/ccpd_"+split_
+pos_save_dir = "../data_set/"+split_+"/12/positive"
+part_save_dir = "../data_set/"+split_+"/12/part"
+neg_save_dir = "../data_set/"+split_+"/12/negative"
+
+print('Split: %s' % split_)
 
 if not os.path.exists(pos_save_dir):
-    os.mkdir(pos_save_dir)
+    os.makedirs(pos_save_dir)
 if not os.path.exists(part_save_dir):
-    os.mkdir(part_save_dir)
+    os.makedirs(part_save_dir)
 if not os.path.exists(neg_save_dir):
-    os.mkdir(neg_save_dir)
+    os.makedirs(neg_save_dir)
     
+if not os.path.exists('anno_store'):
+    os.mkdir('anno_store')
 # store labels of positive, negative, part images
-f1 = open(os.path.join('anno_store', 'pos_12_val.txt'), 'w')
-f2 = open(os.path.join('anno_store', 'neg_12_val.txt'), 'w')
-f3 = open(os.path.join('anno_store', 'part_12_val.txt'), 'w')
+f1 = open(os.path.join('anno_store', 'pos_12_'+split_+'.txt'), 'w')
+f2 = open(os.path.join('anno_store', 'neg_12_'+split_+'.txt'), 'w')
+f3 = open(os.path.join('anno_store', 'part_12_'+split_+'.txt'), 'w')
 
 img_paths = []
 img_paths += [el for el in paths.list_images(img_dir)]

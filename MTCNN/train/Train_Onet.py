@@ -14,9 +14,9 @@ def weights_init(m):
         nn.init.xavier_uniform_(m.weight.data)
         nn.init.constant_(m.bias, 0.1)
 
-train_path = '../data_preprocessing/anno_store/imglist_anno_24.txt'
+train_path = '../data_preprocessing/anno_store/imglist_anno_24_train.txt'
 val_path = '../data_preprocessing/anno_store/imglist_anno_24_val.txt'
-batch_size = 64
+batch_size = 2
 dataloaders = {'train': torch.utils.data.DataLoader(ListDataset(train_path), batch_size=batch_size, shuffle=True),
                'val': torch.utils.data.DataLoader(ListDataset(val_path), batch_size=batch_size, shuffle=True)}
 dataset_sizes = {'train': len(ListDataset(train_path)), 'val': len(ListDataset(val_path))}
@@ -30,7 +30,7 @@ model = ONet(is_train=True).to(device)
 model.apply(weights_init)
 print("Onet loaded")
 
-train_logging_file = 'Onet_train_logging.txt'
+train_logging_file = 'junk.txt'#'Onet_train_logging.txt'
 
 optimizer = torch.optim.Adam(model.parameters())
 since = time.time()
@@ -60,9 +60,9 @@ for epoch in range(num_epochs):
 
         # iterate over data
         for i_batch, sample_batched in enumerate(dataloaders[phase]):
-
-            input_images, gt_label, gt_offset = sample_batched['input_img'], sample_batched[
-                'label'], sample_batched['bbox_target']
+            if i_batch > 100:
+                continue
+            input_images, gt_label, gt_offset = sample_batched['input_img'], sample_batched['label'], sample_batched['bbox_target']
             input_images = input_images.to(device)
             gt_label = gt_label.to(device)
             # print('gt_label is ', gt_label)
@@ -106,6 +106,14 @@ for epoch in range(num_epochs):
                     loss += 0.6*loss_offset(valid_pred_offset, valid_gt_offset)
                     offset_loss = loss_offset(valid_pred_offset, valid_gt_offset).item()
 
+                #Evaluate Bboxes
+                if phase == 'val':
+                    print('Here:')
+                    print(valid_gt_label)
+                    print(valid_pred_label)
+                    print(valid_pred_offset)
+                    print(valid_gt_offset)
+
                 # backward + optimize only if in training phase
                 if phase == 'train':
                     loss.backward()
@@ -140,4 +148,4 @@ print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_ela
 print('Best loss: {:4f}'.format(best_loss))
 
 model.load_state_dict(best_model_wts)
-torch.save(model.state_dict(), 'onet_Weights')
+#torch.save(model.state_dict(), 'trained_models_1may/onet_Weights')
