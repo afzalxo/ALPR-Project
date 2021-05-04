@@ -10,6 +10,7 @@ from load_data import *
 from time import time
 from roi_pooling import roi_pooling_ims
 from shutil import copyfile
+from utils import IoU
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--input", required=True,
@@ -195,7 +196,7 @@ class fh02(nn.Module):
 
     def load_wR2(self, path):
         self.wR2 = wR2(numPoints)
-        self.wR2 = torch.nn.DataParallel(self.wR2, device_ids=range(torch.cuda.device_count()))
+        #self.wR2 = torch.nn.DataParallel(self.wR2, device_ids=range(torch.cuda.device_count()))
         if not path is None:
             self.wR2.load_state_dict(torch.load(path))
             # self.wR2 = self.wR2.cuda()
@@ -203,19 +204,19 @@ class fh02(nn.Module):
         #     param.requires_grad = False
 
     def forward(self, x):
-        x0 = self.wR2.module.features[0](x)
-        _x1 = self.wR2.module.features[1](x0)
-        x2 = self.wR2.module.features[2](_x1)
-        _x3 = self.wR2.module.features[3](x2)
-        x4 = self.wR2.module.features[4](_x3)
-        _x5 = self.wR2.module.features[5](x4)
+        x0 = self.wR2.features[0](x)
+        _x1 = self.wR2.features[1](x0)
+        x2 = self.wR2.features[2](_x1)
+        _x3 = self.wR2.features[3](x2)
+        x4 = self.wR2.features[4](_x3)
+        _x5 = self.wR2.features[5](x4)
 
-        x6 = self.wR2.module.features[6](_x5)
-        x7 = self.wR2.module.features[7](x6)
-        x8 = self.wR2.module.features[8](x7)
-        x9 = self.wR2.module.features[9](x8)
+        x6 = self.wR2.features[6](_x5)
+        x7 = self.wR2.features[7](x6)
+        x8 = self.wR2.features[8](x7)
+        x9 = self.wR2.features[9](x8)
         x9 = x9.view(x9.size(0), -1)
-        boxLoc = self.wR2.module.classifier(x9)
+        boxLoc = self.wR2.classifier(x9)
 
         h1, w1 = _x1.data.size()[2], _x1.data.size()[3]
         p1 = Variable(torch.FloatTensor([[w1,0,0,0],[0,h1,0,0],[0,0,w1,0],[0,0,0,h1]]).cuda(), requires_grad=False)
@@ -257,7 +258,7 @@ def isEqual(labelGT, labelP):
 
 
 model_conv = fh02(numPoints, numClasses)
-model_conv = torch.nn.DataParallel(model_conv, device_ids=range(torch.cuda.device_count()))
+#model_conv = torch.nn.DataParallel(model_conv, device_ids=range(torch.cuda.device_count()))
 model_conv.load_state_dict(torch.load(resume_file))
 model_conv = model_conv.cuda()
 model_conv.eval()
@@ -274,6 +275,8 @@ model_conv.eval()
 #     #   assert len(outputY) == batchSize
 # print("detect efficiency %s seconds" %(time() - start))
 
+orig_w = 720.
+orig_h = 1160.
 
 count = 0
 correct = 0
@@ -284,19 +287,18 @@ sFolder = sFolder if sFolder[-1] == '/' else sFolder + '/'
 if not path.isdir(sFolder):
     mkdir(sFolder)
 
-dst = labelTestDataLoader(args["input"].split(','), imgSize)
+dst = labelFpsDataLoader(args["input"].split(','), imgSize)
 trainloader = DataLoader(dst, batch_size=1, shuffle=True, num_workers=1)
 with open('fh0Eval', 'wb') as outF:
     pass
 
 start = time()
-for i, (XI, labels, ims) in enumerate(trainloader):
+correct_pred = 0
+for i, (XI, bboxes, labels, ims) in enumerate(trainloader):
     count += 1
     YI = [[int(ee) for ee in el.split('_')[:7]] for el in labels]
-    if use_gpu:
-        x = Variable(XI.cuda(0))
-    else:
-        x = Variable(XI)
+    bboxgt = np.array([el.numpy() for el in bboxes]).T
+    x = Variable(XI.cuda())
     # Forward pass: Compute predicted y by passing x to the model
 
     fps_pred, y_pred = model_conv(x)
@@ -314,5 +316,40 @@ for i, (XI, labels, ims) in enumerate(trainloader):
 
     if count % 50 == 0:
         print ('total %s correct %s error %s precision %s six %s avg_time %s' % (count, correct, error, float(correct)/count, float(sixCorrect)/count, (time() - start)/count))
+
+    #Begin Detection Eval
+    #print(bboxgt, fps_pred)
+    #print('gt:')
+    #print(bboxgt[0])
+    #print('pred:')
+    #print(fps_pred[0])
+    bboxgt[0,0] = bboxgt[0, 0] * orig_w
+    bboxgt[0,1] = bboxgt[0, 1] * orig_h
+    bboxgt[0,2] = bboxgt[0, 2] * orig_w
+    bboxgt[0,3] = bboxgt[0, 3] * orig_h
+    fps_pred[0,0] = fps_pred[0, 0] * orig_w
+    fps_pred[0,1] = fps_pred[0, 1] * orig_h
+    fps_pred[0,2] = fps_pred[0, 2] * orig_w
+    fps_pred[0,3] = fps_pred[0, 3] * orig_h
+    iou = IoU(bboxgt, fps_pred.cpu().detach().numpy())
+    #print(bboxgt[0], fps_pred[0])
+    #print(iou)
+    bin_correct = (iou >= 0.7)
+    correct_pred += np.sum(bin_correct)
+    if count % 50 == 0:
+        print('Evaluated %s, Correct Det %s Accuracy Det %s' % (count, correct_pred, correct_pred / count))
+    #store results
+    img = cv2.imread(ims[0])
+    fps_pred = fps_pred.cpu().detach().numpy()
+    y0 = round(fps_pred[0, 1] - fps_pred[0, 3] / 2.)
+    y1 = round(fps_pred[0, 1] + fps_pred[0, 3] / 2.)
+    x0 = round(fps_pred[0, 0] - fps_pred[0, 2] / 2.)
+    x1 = round(fps_pred[0, 0] + fps_pred[0, 2] / 2.)
+    plate = img[y0:y1, x0:x1]
+    print(ims[0])
+    cv2.imwrite('./results_dir/samp_full/'+ims[0].split('/')[-1], plate)
+    rect = cv2.rectangle(img, (x0, y0), (x1, y1), (255,0,0), 2)
+    cv2.imwrite('./results_dir/samp_bboxes/'+ims[0].split('/')[-1], rect)
+    
 with open('fh0Eval', 'a') as outF:
-    outF.write('total %s correct %s error %s precision %s avg_time %s' % (count, correct, error, float(correct) / count, (time() - start)/count))
+    outF.write('total %s correct rec %s error %s precision rec %s correct det %s accuracy det %s avg_time %s' % (count, correct, error, float(correct) / count, correct_pred, float(correct_pred) / count, (time() - start)/count))

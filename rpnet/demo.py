@@ -190,7 +190,7 @@ class fh02(nn.Module):
 
     def load_wR2(self, path):
         self.wR2 = wR2(numPoints)
-        self.wR2 = torch.nn.DataParallel(self.wR2, device_ids=range(torch.cuda.device_count()))
+        #self.wR2 = torch.nn.DataParallel(self.wR2, device_ids=range(torch.cuda.device_count()))
         if not path is None:
             self.wR2.load_state_dict(torch.load(path))
             # self.wR2 = self.wR2.cuda()
@@ -252,7 +252,7 @@ def isEqual(labelGT, labelP):
 
 
 model_conv = fh02(numPoints, numClasses)
-model_conv = torch.nn.DataParallel(model_conv, device_ids=range(torch.cuda.device_count()))
+#model_conv = torch.nn.DataParallel(model_conv, device_ids=range(torch.cuda.device_count()))
 model_conv.load_state_dict(torch.load(resume_file))
 model_conv = model_conv.cuda()
 model_conv.eval()

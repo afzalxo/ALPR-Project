@@ -34,7 +34,7 @@ ap.add_argument("-w", "--writeFile", default='fh02.out',
                 help="file for output")
 args = vars(ap.parse_args())
 
-wR2Path = './wR2/wR2.pth2'
+wR2Path = './wR2_new.pth'
 use_gpu = torch.cuda.is_available()
 print (use_gpu)
 
@@ -225,7 +225,7 @@ class fh02(nn.Module):
 
     def load_wR2(self, path):
         self.wR2 = wR2(numPoints)
-        self.wR2 = torch.nn.DataParallel(self.wR2, device_ids=range(torch.cuda.device_count()))
+        #self.wR2 = torch.nn.DataParallel(self.wR2, device_ids=range(torch.cuda.device_count()))
         if not path is None:
             self.wR2.load_state_dict(torch.load(path))
             # self.wR2 = self.wR2.cuda()
@@ -233,19 +233,19 @@ class fh02(nn.Module):
         #     param.requires_grad = False
 
     def forward(self, x):
-        x0 = self.wR2.module.features[0](x)
-        _x1 = self.wR2.module.features[1](x0)
-        x2 = self.wR2.module.features[2](_x1)
-        _x3 = self.wR2.module.features[3](x2)
-        x4 = self.wR2.module.features[4](_x3)
-        _x5 = self.wR2.module.features[5](x4)
+        x0 = self.wR2.features[0](x)
+        _x1 = self.wR2.features[1](x0)
+        x2 = self.wR2.features[2](_x1)
+        _x3 = self.wR2.features[3](x2)
+        x4 = self.wR2.features[4](_x3)
+        _x5 = self.wR2.features[5](x4)
 
-        x6 = self.wR2.module.features[6](_x5)
-        x7 = self.wR2.module.features[7](x6)
-        x8 = self.wR2.module.features[8](x7)
-        x9 = self.wR2.module.features[9](x8)
+        x6 = self.wR2.features[6](_x5)
+        x7 = self.wR2.features[7](x6)
+        x8 = self.wR2.features[8](x7)
+        x9 = self.wR2.features[9](x8)
         x9 = x9.view(x9.size(0), -1)
-        boxLoc = self.wR2.module.classifier(x9)
+        boxLoc = self.wR2.classifier(x9)
 
         h1, w1 = _x1.data.size()[2], _x1.data.size()[3]
         p1 = Variable(torch.FloatTensor([[w1,0,0,0],[0,h1,0,0],[0,0,w1,0],[0,0,0,h1]]).cuda(), requires_grad=False)
@@ -287,13 +287,13 @@ if not resume_file == '111':
         exit(0)
     print ("Load existed model! %s" % resume_file)
     model_conv = fh02(numPoints, numClasses)
-    model_conv = torch.nn.DataParallel(model_conv, device_ids=range(torch.cuda.device_count()))
+    #model_conv = torch.nn.DataParallel(model_conv, device_ids=range(torch.cuda.device_count()))
     model_conv.load_state_dict(torch.load(resume_file))
     model_conv = model_conv.cuda()
 else:
     model_conv = fh02(numPoints, numClasses, wR2Path)
     if use_gpu:
-        model_conv = torch.nn.DataParallel(model_conv, device_ids=range(torch.cuda.device_count()))
+        #model_conv = torch.nn.DataParallel(model_conv, device_ids=range(torch.cuda.device_count()))
         model_conv = model_conv.cuda()
 
 print(model_conv)
@@ -340,6 +340,7 @@ def eval(model, test_dirs):
             else:
                 pass
         except:
+            print('exception at isequal')
             error += 1
     return count, correct, error, float(correct) / count, (time() - start) / count
 
@@ -366,10 +367,11 @@ def train_model(model, criterion, optimizer, num_epochs=25):
                 y = Variable(torch.FloatTensor(Y), requires_grad=False)
             # Forward pass: Compute predicted y by passing x to the model
 
-            try:
-                fps_pred, y_pred = model(x)
-            except:
-                continue
+            #try:
+            fps_pred, y_pred = model(x)
+            #except:
+            #    print('Exception at model')
+            #    continue
 
             # Compute and print loss
             loss = 0.0
@@ -385,8 +387,9 @@ def train_model(model, criterion, optimizer, num_epochs=25):
             optimizer.step()
 
             try:
-                lossAver.append(loss.data[0])
+                lossAver.append(loss.item())
             except:
+                print('Exception at Loss')
                 pass
 
             if i % 50 == 1:
